@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Websocket</title>
+
+	<style>
+		#connection_status {
+			padding: 5px;
+			width: 100%;
+		}
+
+		.connected {
+			background-color: green;
+		}
+
+		.disconnected {
+			background-color: red;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="connection_status"></div>
+
+	<select name="" id="users_select"></select>
+	<button id="connect_button">Connect</button>
+
+	<button onclick="sendMessage('Send message from client')">
+		Send message
+	</button>
+
+	<script>
+		const usersSelectElement = document.querySelector("#users_select");
+		let socket;
+
+		fetch("http://localhost:8080/users")
+			.then(response => response.json())
+			.then(json => {
+				json.forEach(user => {
+					const option = document.createElement("option");
+					option.value = user.id;
+					option.innerHTML = user.first_name;
+
+					usersSelectElement.appendChild(option);
+				});
+			});
+
+
+		const connectionStatusElement = document.querySelector("#connection_status");
+		let isConnected = false;
+
+		function setConnectionStatus(connectionStatus) {
+			isConnected = connectionStatus;
+			connectionStatusElement.innerHTML = isConnected ? "Connected" : "Diconnected";
+			connectionStatusElement.className = isConnected ? "connected" : "disconnected";
+		}
+
+		setConnectionStatus(false);
+
+		function connectWebsocket(userId) {
+			socket = new WebSocket("ws://127.0.0.1:8080/ws?session_id=" + userId);
+	
+			socket.addEventListener("open", (event) => {
+				socket.send(`${userId} opened a connection`);
+			});
+	
+			socket.addEventListener("message", (event) => {
+				console.log("Message from server ", event.data);
+				console.log(socket)
+			});
+
+			socket.addEventListener("close", (event) => {
+				console.log("Closed connection");
+			});
+
+			socket.addEventListener("error", (event) => {
+				console.error(error);
+			});
+		}
+
+		function disconnectWebsocket() {
+			socket.close();
+		}
+
+		function sendMessage(text) {
+			socket.send(text);
+		}
+
+
+		const connectButtonElement = document.querySelector("#connect_button");
+
+		connectButtonElement.addEventListener("click", function(e) {
+			if (!isConnected) {
+				connectWebsocket(usersSelectElement.value);
+				this.innerHTML = "Disconnect";
+				setConnectionStatus(!isConnected);
+			} else {
+				disconnectWebsocket();
+				this.innerHTML = "Connect";
+				setConnectionStatus(!isConnected);
+			}
+		});
+	</script>
+</body>
+
+</html>
