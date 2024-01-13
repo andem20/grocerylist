@@ -19,6 +19,11 @@
 		.disconnected {
 			background-color: red;
 		}
+
+		#items_list {
+			display: block;
+			width: 100%;
+		}
 	</style>
 </head>
 
@@ -26,17 +31,32 @@
 	<div id="connection_status"></div>
 
 	<select name="" id="users_select"></select>
+	<select name="" id="lists_select"></select>
 	<button id="connect_button">Connect</button>
 
-	<button onclick="sendMessage('Send message from client')">
-		Send message
-	</button>
+	<div>
+		<input id="item_input" type="text" placeholder="Add an item">
+		<button id="add_item_button">Add item</button>
+	</div>
+
+	<div>
+		<ul id="items_list"></ul>
+	</div>
 
 	<script>
 		const usersSelectElement = document.querySelector("#users_select");
-		let socket;
+		const listsSelectElement = document.querySelector("#lists_select");
+		const connectButtonElement = document.querySelector("#connect_button");
+		const messageButtonElement = document.querySelector("#add_item_button");
+		const itemInputElement = document.querySelector("#item_input");
+		const itemsListElement = document.querySelector("#items_list");
 
-		fetch("http://localhost:8080/users")
+		let socket;
+		let rooms = [];
+		let lists = [];
+		let currentUserId = null;
+
+		fetch(`http://${location.hostname}:8080/users`)
 			.then(response => response.json())
 			.then(json => {
 				json.forEach(user => {
@@ -56,24 +76,67 @@
 			isConnected = connectionStatus;
 			connectionStatusElement.innerHTML = isConnected ? "Connected" : "Diconnected";
 			connectionStatusElement.className = isConnected ? "connected" : "disconnected";
+
+			connectButtonElement.innerHTML = isConnected ? "Disconnect" : "Connect";
+		}
+
+		function updateListsSelector(listsArray) {
+			lists = listsArray;
+			listsSelectElement.innerHTML = "";
+			const option = document.createElement("option");
+			option.disabled = true;
+			option.innerHTML = "Choose a list";
+			option.selected = true;
+			listsSelectElement.appendChild(option);
+			
+			lists.forEach(list => {
+				const option = document.createElement("option");
+				option.value = list.id;
+				option.innerHTML = list.title;
+				listsSelectElement.appendChild(option);
+			});
+		}
+
+		function setItemsList(items) {
+			itemsListElement.innerHTML = "";
+
+			items.forEach(addListItem);
+		}
+
+		function addListItem(item) {
+			const itemElement = document.createElement("li");
+			itemElement.innerHTML = item.name;
+			itemsListElement.appendChild(itemElement);
 		}
 
 		setConnectionStatus(false);
 
+		const responseHandler = new Map();
+		responseHandler.set("CONNECT_RESPONSE", updateListsSelector);
+		responseHandler.set("ITEMS_RESPONSE", setItemsList);
+		responseHandler.set("ITEM_CREATE_RESPONSE", addListItem);
+
 		function connectWebsocket(userId) {
-			socket = new WebSocket("ws://127.0.0.1:8080/ws?session_id=" + userId);
+			socket = new WebSocket(`ws://${location.hostname}:8080/ws?session_id=${userId}`);
 	
 			socket.addEventListener("open", (event) => {
-				socket.send(`${userId} opened a connection`);
+				setConnectionStatus(true);
 			});
 	
 			socket.addEventListener("message", (event) => {
-				console.log("Message from server ", event.data);
-				console.log(socket)
+				const data = JSON.parse(event.data);
+
+				if (responseHandler.has(data.content_type)) {
+					responseHandler.get(data.content_type)(data.content);
+				} else {
+					console.error("Response not supported");
+				}
 			});
 
 			socket.addEventListener("close", (event) => {
 				console.log("Closed connection");
+				setConnectionStatus(false);
+				updateListsSelector([]);
 			});
 
 			socket.addEventListener("error", (event) => {
@@ -86,22 +149,44 @@
 		}
 
 		function sendMessage(text) {
-			socket.send(text);
+			socket.send(JSON.stringify(text));
 		}
 
-
-		const connectButtonElement = document.querySelector("#connect_button");
 
 		connectButtonElement.addEventListener("click", function(e) {
 			if (!isConnected) {
 				connectWebsocket(usersSelectElement.value);
 				this.innerHTML = "Disconnect";
-				setConnectionStatus(!isConnected);
 			} else {
 				disconnectWebsocket();
 				this.innerHTML = "Connect";
-				setConnectionStatus(!isConnected);
 			}
+		});
+
+		messageButtonElement.addEventListener("click", () => {
+			const message = {
+				action: "CREATE",
+    			content_type: "Items",
+    			content: JSON.stringify({
+					list_id: listsSelectElement.value,
+					name: itemInputElement.value
+				})
+			};
+
+			sendMessage(message);
+		});
+
+		listsSelectElement.addEventListener("change", function() {
+			const message = {
+				action: "READ",
+    			content_type: "Items",
+    			content: JSON.stringify({
+					list_id: this.value,
+					user_id: usersSelectElement.value
+				})
+			};
+
+			sendMessage(message);
 		});
 	</script>
 </body>

@@ -15,24 +15,26 @@ pub struct User {
     pub roles: String,
 }
 
-pub async fn find_all_users(client: &Client) -> Result<Vec<User>, DbError> {
-    let stmt = client.prepare(&"SELECT * FROM users").await?;
-
-    let results = client
-        .query(&stmt, &[])
-        .await?
-        .iter()
-        .map(|row| User::from_row_ref(row).expect("Failed to parse user row"))
-        .collect::<Vec<User>>();
-
-    Ok(results)
-}
-
-pub async fn find_user_by_id(id: uuid::Uuid, client: &Client) -> Result<User, DbError> {
-    let stmt = client.prepare("SELECT * FROM users WHERE id = $1").await?;
-
-    let row = client.query_one(&stmt, &[&id]).await?;
-    let result = User::from_row_ref(&row).expect("Failed to parse user row");
-
-    Ok(result)
+impl User {
+    pub async fn find_all(client: &Client) -> Result<Vec<User>, DbError> {
+        let stmt = client.prepare(&"SELECT * FROM users").await?;
+    
+        let results = client
+            .query(&stmt, &[])
+            .await?
+            .iter()
+            .map(|row| User::from_row_ref(row).expect("Failed to parse user row"))
+            .collect::<Vec<User>>();
+    
+        Ok(results)
+    }
+    
+    pub async fn find_by_id(id: uuid::Uuid, client: &Client) -> Result<User, DbError> {
+        let stmt = client.prepare("SELECT * FROM users WHERE id = $1").await?;
+    
+        let row = client.query_one(&stmt, &[&id]).await?;
+        let result = User::from_row_ref(&row).expect("Failed to parse user row");
+    
+        Ok(result)
+    }
 }

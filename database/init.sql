@@ -16,19 +16,22 @@ INSERT INTO users (first_name, last_name, email, password, roles) VALUES ('Ander
 INSERT INTO users (first_name, last_name, email, password, roles) VALUES ('Nadia', 'Thomsen', 'nadiasophie@hotmail.com', 'password', 'admin,user');
 
 CREATE TABLE lists (
-    id uuid,
-    user_id uuid REFERENCES users(id),
+    id uuid NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    user_id uuid REFERENCES users(id) NOT NULL,
     PRIMARY KEY(id, user_id)
 );
 
 WITH list_id (id) AS (
    VALUES (gen_random_uuid())
 ) 
-INSERT INTO lists (id, user_id) SELECT (SELECT * FROM list_id), id FROM users;
+INSERT INTO lists (id, title, user_id) SELECT (SELECT * FROM list_id), 'Shopping', id FROM users;
+
+INSERT INTO lists (id, title, user_id) VALUES (gen_random_uuid(), 'Personal', (SELECT id FROM users WHERE email = 'anderslm@hotmail.com'));
 
 CREATE TABLE items (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    list_id uuid NOT NULL,
+    list_id uuid,
     name VARCHAR(255) NOT NULL,
     done BOOLEAN DEFAULT FALSE NOT NULL 
 );
