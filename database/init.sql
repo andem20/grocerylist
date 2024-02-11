@@ -7,13 +7,13 @@ CREATE TABLE users (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     first_name VARCHAR(255) NOT NULL,
     last_name VARCHAR(255) NOT NULL,
-    email VARCHAR NOT NULL,
+    username VARCHAR NOT NULL,
     password VARCHAR NOT NULL,
     roles VARCHAR NOT NULL
 );
 
-INSERT INTO users (first_name, last_name, email, password, roles) VALUES ('Anders', 'Madsen', 'anderslm@hotmail.com', 'password', 'admin,user');
-INSERT INTO users (first_name, last_name, email, password, roles) VALUES ('Nadia', 'Thomsen', 'nadiasophie@hotmail.com', 'password', 'admin,user');
+INSERT INTO users (first_name, last_name, username, password, roles) VALUES ('Anders', 'Madsen', 'anderslm@hotmail.com', 'password', 'admin,user');
+INSERT INTO users (first_name, last_name, username, password, roles) VALUES ('Nadia', 'Thomsen', 'nadiasophie@hotmail.com', 'password', 'admin,user');
 
 CREATE TABLE lists (
     id uuid NOT NULL,
@@ -27,7 +27,7 @@ WITH list_id (id) AS (
 ) 
 INSERT INTO lists (id, title, user_id) SELECT (SELECT * FROM list_id), 'Shopping', id FROM users;
 
-INSERT INTO lists (id, title, user_id) VALUES (gen_random_uuid(), 'Personal', (SELECT id FROM users WHERE email = 'anderslm@hotmail.com'));
+INSERT INTO lists (id, title, user_id) VALUES (gen_random_uuid(), 'Personal', (SELECT id FROM users WHERE username = 'anderslm@hotmail.com'));
 
 CREATE TABLE items (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,

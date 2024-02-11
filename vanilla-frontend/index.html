@@ -7,22 +7,104 @@
 	<title>Websocket</title>
 
 	<style>
+		body {
+			font-family: Arial, Helvetica, sans-serif;
+			font-size: 2rem;
+			margin: 0;
+		}
+
+		input,
+		select,
+		button {
+			font-family: Arial, Helvetica, sans-serif;
+			font-size: 1rem;
+		}
+
 		#connection_status {
 			padding: 5px;
 			width: 100%;
+			color: #ffffff;
 		}
 
 		.connected {
-			background-color: green;
+			background-color: #2cb63f;
 		}
 
 		.disconnected {
-			background-color: red;
+			background-color: #ee3232;
 		}
 
-		#items_list {
-			display: block;
+		.check-list {
+			margin: 0;
+			padding-left: 1.2rem;
 			width: 100%;
+		}
+
+		.check-list li {
+			position: relative;
+			display: flex;
+			justify-content: space-between;
+			list-style-type: none;
+			padding-left: 2.5rem;
+			padding-bottom: 0.5rem;
+			padding-top: 0.5rem;
+		}
+
+		.check-list li:hover {
+			background-color: #f0f0f0;
+			cursor: default;
+		}
+
+		.checked {
+			color: #aaaaaa;
+			background-color: #e0e0e0;
+		}
+
+		.checked>.name {
+			text-decoration: line-through;
+		}
+
+		.deleteButton {
+			padding: 0.5rem;
+		}
+
+		.deleteButton:hover {
+			background-color: #ee3232;
+			color: #ffffff;
+		}
+
+		.checked:before {
+			content: '';
+			display: block;
+			position: absolute;
+			left: 0.5rem;
+			top: 0.5rem;
+			width: 0.5rem;
+			height: 1rem;
+			border-width: 0 2px 2px 0;
+			border-style: solid;
+			border-color: #10b325;
+			transform-origin: bottom left;
+			transform: rotate(45deg);
+		}
+
+		section {
+			max-width: 600px;
+			margin-left: auto;
+			margin-right: auto;
+			display: flex;
+			align-items: center;
+		}
+
+		.items-container {
+			width: 100%;
+			margin-top: 2rem;
+		}
+
+		.items-container>#item_input,
+		#add_item_button {
+			font-size: 1.5rem;
+			padding: 0.5rem;
 		}
 	</style>
 </head>
@@ -30,24 +112,29 @@
 <body>
 	<div id="connection_status"></div>
 
-	<select name="" id="users_select"></select>
 	<select name="" id="lists_select"></select>
-	<button id="connect_button">Connect</button>
+	<button id="logout_button">Logout</button>
 
-	<div>
-		<input id="item_input" type="text" placeholder="Add an item">
-		<button id="add_item_button">Add item</button>
-	</div>
+	<section>
+		<div class="items-container">
+			<input id="item_input" type="text" placeholder="Add an item">
+			<button id="add_item_button">Add item</button>
+			<ul id="items_list" class="check-list"></ul>
+		</div>
+	</section>
 
-	<div>
-		<ul id="items_list"></ul>
-	</div>
 
 	<script>
-		const usersSelectElement = document.querySelector("#users_select");
+
+		const baseUrl = `http://${location.hostname}:8080`;
+
+		if (sessionStorage.getItem("token") == undefined) {
+			window.location = "/vanilla-frontend/login.html";
+		}
+
+		const logoutButtonElement = document.querySelector("#logout_button");
 		const listsSelectElement = document.querySelector("#lists_select");
-		const connectButtonElement = document.querySelector("#connect_button");
-		const messageButtonElement = document.querySelector("#add_item_button");
+		const addItemButtonElement = document.querySelector("#add_item_button");
 		const itemInputElement = document.querySelector("#item_input");
 		const itemsListElement = document.querySelector("#items_list");
 
@@ -55,18 +142,6 @@
 		let rooms = [];
 		let lists = [];
 		let currentUserId = null;
-
-		fetch(`http://${location.hostname}:8080/users`)
-			.then(response => response.json())
-			.then(json => {
-				json.forEach(user => {
-					const option = document.createElement("option");
-					option.value = user.id;
-					option.innerHTML = user.first_name;
-
-					usersSelectElement.appendChild(option);
-				});
-			});
 
 
 		const connectionStatusElement = document.querySelector("#connection_status");
@@ -76,8 +151,6 @@
 			isConnected = connectionStatus;
 			connectionStatusElement.innerHTML = isConnected ? "Connected" : "Diconnected";
 			connectionStatusElement.className = isConnected ? "connected" : "disconnected";
-
-			connectButtonElement.innerHTML = isConnected ? "Disconnect" : "Connect";
 		}
 
 		function updateListsSelector(listsArray) {
@@ -88,7 +161,7 @@
 			option.innerHTML = "Choose a list";
 			option.selected = true;
 			listsSelectElement.appendChild(option);
-			
+
 			lists.forEach(list => {
 				const option = document.createElement("option");
 				option.value = list.id;
@@ -104,33 +177,89 @@
 		}
 
 		function addListItem(item) {
-			const itemElement = document.createElement("li");
+			const itemElementParent = document.createElement("li");
+			itemElementParent.setAttribute("id", item.id);
+			itemElementParent.className = item.done ? "checked" : "";
+
+			const itemElement = document.createElement("div");
+			itemElement.className = 'name'
 			itemElement.innerHTML = item.name;
-			itemsListElement.appendChild(itemElement);
+
+			const deleteElementButton = document.createElement("div");
+			deleteElementButton.innerHTML = "X";
+			deleteElementButton.className = "deleteButton";
+
+			itemElementParent.append(itemElement, deleteElementButton)
+
+			itemsListElement.appendChild(itemElementParent);
+
+			itemElementParent.addEventListener("click", function () {
+				fetch(`${baseUrl}/list/${listsSelectElement.value}/items`, {
+					headers: {
+						"Authorization": sessionStorage.getItem("token"),
+						"Content-Type": "application/json"
+					},
+					method: "PUT",
+					body: JSON.stringify({
+						id: this.getAttribute("id"),
+						name: itemElement.innerHTML,
+						done: !(this.className == "checked")
+					})
+				});
+			});
+
+			deleteElementButton.addEventListener("click", function (event) {
+				event.stopPropagation()
+
+				fetch(`${baseUrl}/list/${listsSelectElement.value}/items`, {
+					headers: {
+						"Authorization": sessionStorage.getItem("token"),
+						"Content-Type": "application/json"
+					},
+					method: "DELETE",
+					body: JSON.stringify({
+						id: itemElementParent.getAttribute("id"),
+					})
+				});
+			});
+		}
+
+		function updateListItem(item) {
+			const itemElement = document.querySelector(`[id="${item.id}"]`);
+			itemElement.querySelector('.name').innerHTML = item.name;
+			itemElement.className = item.done ? "checked" : "";
+		}
+
+		function deleteListItem(item) {
+			document.querySelector(`[id="${item.id}"]`).remove();
 		}
 
 		setConnectionStatus(false);
 
-		const responseHandler = new Map();
-		responseHandler.set("CONNECT_RESPONSE", updateListsSelector);
-		responseHandler.set("ITEMS_RESPONSE", setItemsList);
-		responseHandler.set("ITEM_CREATE_RESPONSE", addListItem);
+		// Resource -> action
+		const responseHandler = {
+			"SERVER": {
+				"CONNECT": updateListsSelector
+			},
 
-		function connectWebsocket(userId) {
-			socket = new WebSocket(`ws://${location.hostname}:8080/ws?session_id=${userId}`);
-	
+			"ITEM": {
+				"READ": setItemsList,
+				"CREATE": addListItem,
+				"UPDATE": updateListItem,
+				"DELETE": deleteListItem
+			}
+		};
+
+		function connectWebsocket(token) {
+			socket = new WebSocket(`ws://${location.hostname}:8080/ws?token=${token}`);
+
 			socket.addEventListener("open", (event) => {
 				setConnectionStatus(true);
 			});
-	
+
 			socket.addEventListener("message", (event) => {
 				const data = JSON.parse(event.data);
-
-				if (responseHandler.has(data.content_type)) {
-					responseHandler.get(data.content_type)(data.content);
-				} else {
-					console.error("Response not supported");
-				}
+				responseHandler[data.resource]?.[data.action]?.(data.content);
 			});
 
 			socket.addEventListener("close", (event) => {
@@ -140,53 +269,54 @@
 			});
 
 			socket.addEventListener("error", (event) => {
-				console.error(error);
+				console.log(event);
+				if (sessionStorage.getItem("token") != undefined) {
+					sessionStorage.removeItem("token");
+				}
+
+				window.location = `/vanilla-frontend/login.html?${event.type}`;
 			});
 		}
 
-		function disconnectWebsocket() {
-			socket.close();
-		}
+		function disconnectWebsocket() { socket.close(); }
+		function sendMessage(text) { socket.send(JSON.stringify(text)); }
 
-		function sendMessage(text) {
-			socket.send(JSON.stringify(text));
-		}
+		logoutButtonElement.addEventListener("click", () => {
+			disconnectWebsocket();
+			this.innerHTML = "Connect";
 
-
-		connectButtonElement.addEventListener("click", function(e) {
-			if (!isConnected) {
-				connectWebsocket(usersSelectElement.value);
-				this.innerHTML = "Disconnect";
-			} else {
-				disconnectWebsocket();
-				this.innerHTML = "Connect";
+			if (sessionStorage.getItem("token") != undefined) {
+				sessionStorage.removeItem("token");
 			}
+
+			window.location = `/vanilla-frontend/login.html`;
 		});
 
-		messageButtonElement.addEventListener("click", () => {
-			const message = {
-				action: "CREATE",
-    			content_type: "Items",
-    			content: JSON.stringify({
-					list_id: listsSelectElement.value,
+		connectWebsocket(sessionStorage.getItem("token"));
+
+		addItemButtonElement.addEventListener("click", async () => {
+			fetch(`${baseUrl}/list/${listsSelectElement.value}/items`, {
+				headers: {
+					"Authorization": sessionStorage.getItem("token"),
+					"Content-Type": "application/json"
+				},
+				method: "POST",
+				body: JSON.stringify({
 					name: itemInputElement.value
 				})
-			};
+			});
 
-			sendMessage(message);
+			itemInputElement.value = "";
 		});
 
-		listsSelectElement.addEventListener("change", function() {
-			const message = {
-				action: "READ",
-    			content_type: "Items",
-    			content: JSON.stringify({
-					list_id: this.value,
-					user_id: usersSelectElement.value
-				})
-			};
-
-			sendMessage(message);
+		listsSelectElement.addEventListener("change", async function () {
+			const response = await fetch(`${baseUrl}/list/${this.value}/items`, {
+				headers: {
+					"Authorization": sessionStorage.getItem("token")
+				}
+			});
+			const itemList = await response.json();
+			setItemsList(itemList);
 		});
 	</script>
 </body>
