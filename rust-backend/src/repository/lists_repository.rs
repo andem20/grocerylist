@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use deadpool_postgres::Client;
+use deadpool_postgres::{Client, Pool};
 use serde::{Deserialize, Serialize};
 use tokio_pg_mapper::FromTokioPostgresRow;
 use tokio_pg_mapper_derive::PostgresMapper;
@@ -16,19 +16,33 @@ pub struct List {
 }
 
 pub struct ListRepository {
-    pub client: Arc<Client>
+    db_pool: Arc<Pool>,
 }
 
-impl List {
-    pub async fn find_by_user_id(user_id: uuid::Uuid, client: &Client) -> Result<Vec<List>, DbError> {
-        let stmt = client.prepare("SELECT * FROM lists WHERE user_id = $1").await?;
-    
-        let results: Vec<List> = client.query(&stmt, &[&user_id])
+impl ListRepository {
+    pub fn new(db_pool: Arc<Pool>) -> Self {
+        Self { db_pool }
+    }
+}
+
+impl ListRepository {
+    pub async fn find_by_user_id(&self, user_id: uuid::Uuid) -> Result<Vec<List>, DbError> {
+        let client = self.client().await;
+        let stmt = client
+            .prepare("SELECT * FROM lists WHERE user_id = $1")
+            .await?;
+
+        let results: Vec<List> = client
+            .query(&stmt, &[&user_id])
             .await?
             .iter()
             .map(|row| List::from_row_ref(&row).expect("Failed to parse list row"))
             .collect();
-    
+
         Ok(results)
+    }
+
+    async fn client(&self) -> Client {
+        self.db_pool.get().await.map_err(DbError::PoolError).unwrap()
     }
 }

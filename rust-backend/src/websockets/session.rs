@@ -1,18 +1,60 @@
-use actix::{Actor, Addr, AsyncContext, Running, StreamHandler, Handler, WrapFuture, ActorFutureExt, ActorContext, fut, dev::ContextFutureSpawner};
+use actix::{
+    dev::ContextFutureSpawner, fut, Actor, ActorContext, ActorFutureExt, Addr, AsyncContext,
+    Handler, Running, StreamHandler, WrapFuture,
+};
 use actix_web::web::Data;
 use actix_web_actors::ws;
-use deadpool_postgres::Pool;
 
-use crate::{websockets::server::Connect, repository::lists_repository::List};
+use crate::repository::lists_repository::List;
+use crate::repository::repository::Repository;
 
-use super::server::{WsServer, WsMessage, Disconnect, ClientMessage, ServerMessage};
+use super::messages;
+use super::server::WsServer;
 
 pub struct WsSession {
-    pub id: uuid::Uuid,
-    pub rooms: Vec<List>,
-    pub name: Option<String>,
-    pub server_address: Data<Addr<WsServer>>,
-    pub db_pool: Data<Pool>
+    id: uuid::Uuid,
+    rooms: Vec<List>,
+    name: Option<String>,
+    server_address: Data<Addr<WsServer>>,
+    repository: Data<Repository>,
+}
+
+impl WsSession {
+    pub fn new(
+        id: uuid::Uuid,
+        rooms: Vec<List>,
+        name: Option<String>,
+        server_address: Data<Addr<WsServer>>,
+        repository: Data<Repository>,
+    ) -> Self {
+        Self {
+            id,
+            rooms,
+            name,
+            server_address,
+            repository,
+        }
+    }
+
+    pub fn id(&self) -> uuid::Uuid {
+        self.id
+    }
+
+    pub fn rooms(&self) -> &Vec<List> {
+        self.rooms.as_ref()
+    }
+
+    pub fn name(&self) -> Option<&String> {
+        self.name.as_ref()
+    }
+
+    pub fn server_address(&self) -> &Data<Addr<WsServer>> {
+        &self.server_address
+    }
+
+    pub fn repository(&self) -> Data<Repository> {
+        self.repository.clone()
+    }
 }
 
 impl Actor for WsSession {
@@ -20,10 +62,10 @@ impl Actor for WsSession {
 
     fn started(&mut self, ctx: &mut Self::Context) {
         let addr = ctx.address();
-        let connect_msg = Connect { 
-            id: self.id.clone(), 
+        let connect_msg = messages::Connect {
+            id: self.id.clone(),
             address: addr.recipient(),
-            rooms: self.rooms.clone()
+            rooms: self.rooms.clone(),
         };
 
         self.server_address
@@ -32,15 +74,22 @@ impl Actor for WsSession {
             .then(|res, _act, ctx| {
                 match res {
                     Ok(rooms) => {
-                        let server_message: ServerMessage<Vec<List>> = ServerMessage {
-                            content_type: "CONNECT_RESPONSE".to_owned(),
+                        let server_message = messages::ClientMessage {
+                            action: messages::Action::CONNECT,
+                            resource: messages::Resource::SERVER,
                             content: rooms,
                         };
 
-                        ctx.text(serde_json::to_string(&server_message).unwrap_or("Failed to serialize message".to_owned()));
-                    },
+                        ctx.text(
+                            serde_json::to_string(&server_message)
+                                .unwrap_or("Failed to serialize message".to_owned()),
+                        );
+                    }
 
-                    _ => ctx.stop(),
+                    Err(e) => {
+                        eprintln!("{}", e);
+                        ctx.stop();
+                    }
                 }
                 fut::ready(())
             })
@@ -48,15 +97,16 @@ impl Actor for WsSession {
     }
 
     fn stopping(&mut self, _ctx: &mut Self::Context) -> Running {
-        self.server_address.do_send(Disconnect { id: self.id });
+        self.server_address
+            .do_send(messages::Disconnect { id: self.id });
         Running::Stop
     }
 }
 
-impl Handler<WsMessage> for WsSession {
+impl Handler<messages::WsMessage> for WsSession {
     type Result = ();
 
-    fn handle(&mut self, msg: WsMessage, ctx: &mut Self::Context) {
+    fn handle(&mut self, msg: messages::WsMessage, ctx: &mut Self::Context) {
         ctx.text(msg.0);
     }
 }
@@ -66,14 +116,34 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsSession {
         match msg {
             Ok(ws::Message::Ping(msg)) => ctx.pong(&msg),
             Ok(ws::Message::Text(text)) => {
-                let client_message: ClientMessage = serde_json::from_str(&text).expect("Failed to deserialize string");
-                self.server_address.do_send(client_message);
-            },
+                let msg: messages::ClientMessage<String> = serde_json::from_str(&text).unwrap();
+
+                match msg.resource {
+                    messages::Resource::ITEM => match msg.action {
+                        // messages::Action::READ => {
+                        //     let request: ItemsRequest = serde_json::from_str(&msg.content).unwrap();
+                        //     ctx.address().do_send(request);
+                        // }
+
+                        // messages::Action::CREATE => {
+                        //     let request: ItemSaveRequest = serde_json::from_str(&msg.content).unwrap();
+                        //     self.server_address.do_send(request);
+                        // }
+
+                        // messages::Action::UPDATE => {
+                        //     let request: ItemUpdateRequest = serde_json::from_str(&msg.content).unwrap();
+                        //     self.server_address.do_send(request);
+                        // }
+                        _ => println!("Action {:?} not supported", msg.action),
+                    },
+                    _ => println!("Type {:?} not supported", msg.resource),
+                }
+            }
             Ok(ws::Message::Binary(bin)) => ctx.binary(bin),
             Ok(ws::Message::Close(reason)) => {
                 ctx.close(reason);
                 ctx.stop();
-            },
+            }
             _ => (),
         }
     }
