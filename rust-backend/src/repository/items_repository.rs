@@ -33,7 +33,15 @@ impl ItemRepository {
         user_id: &uuid::Uuid,
     ) -> Result<Vec<Item>, DbError> {
         let client = self.client().await;
-        let stmt = client.prepare("SELECT * FROM items WHERE list_id = $1 AND (SELECT COUNT(*) FROM lists WHERE id = $1 AND user_id = $2) = 1 ORDER BY done ASC, name DESC").await?;
+
+        let query = "
+            SELECT * FROM items 
+            WHERE list_id = $1 
+            AND (SELECT COUNT(*) FROM lists WHERE id = $1 AND user_id = $2) = 1 
+            ORDER BY done ASC, name DESC
+        ";
+
+        let stmt = client.prepare(query).await?;
 
         let results: Vec<Item> = client
             .query(&stmt, &[&list_id, &user_id])

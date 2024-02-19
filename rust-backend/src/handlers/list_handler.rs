@@ -141,7 +141,7 @@ pub async fn delete_list_item(
                 done: true,
             };
 
-            let _ = repository.items().delete(body.id).await;
+            let _ = repository.items().delete(body.id).await.unwrap();
 
             server.do_send(UpdateItem {
                 action: messages::Action::DELETE,

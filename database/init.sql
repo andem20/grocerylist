@@ -33,7 +33,10 @@ CREATE TABLE items (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     list_id uuid,
     name VARCHAR(255) NOT NULL,
-    done BOOLEAN DEFAULT FALSE NOT NULL 
+    done BOOLEAN DEFAULT FALSE NOT NULL,
+    deleted BOOLEAN DEFAULT FALSE NOT NULL,
+    lat FLOAT,
+    lng FLOAT
 );
 
 INSERT INTO items (list_id, name) SELECT DISTINCT id, 'Milk' FROM lists;

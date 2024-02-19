@@ -10,7 +10,7 @@ actix-web = "4.4.1"
 actix-web-actors = "4.2.0"
 base64 = "0.21.7"
 config = "0.13.4"
-deadpool-postgres = {version = "0.12.1", features = ["serde"]}
+deadpool-postgres = { version = "0.12.1", features = ["serde"] }
 derive_more = "0.99.17"
 dotenvy = "0.15.7"
 env_logger = "0.11.0"
@@ -22,5 +22,5 @@ sha2 = "0.10.8"
 tokio = "1.35.1"
 tokio-pg-mapper = "0.2.0"
 tokio-pg-mapper-derive = "0.2.0"
-tokio-postgres = {version="0.7.10", features=["with-uuid-1"]}
-uuid = {version = "1.6.1", features = ["v4", "serde"]}
+tokio-postgres = { version = "0.7.10", features = ["with-uuid-1"] }
+uuid = { version = "1.6.1", features = ["v4", "serde"] }
