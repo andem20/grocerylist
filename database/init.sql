@@ -36,7 +36,14 @@ CREATE TABLE items (
     done BOOLEAN DEFAULT FALSE NOT NULL,
     deleted BOOLEAN DEFAULT FALSE NOT NULL,
     lat FLOAT,
-    lng FLOAT
+    lng FLOAT,
+    category SMALLINT
 );
 
-INSERT INTO items (list_id, name) SELECT DISTINCT id, 'Milk' FROM lists;
+INSERT INTO items (list_id, name, lat, lng) SELECT DISTINCT id, 'Milk', 55.3530717, 10.3442589 FROM lists;
+INSERT INTO items (list_id, name, lat, lng) SELECT DISTINCT id, 'Cheese', 55.3530717, 10.3442589 FROM lists;
+INSERT INTO items (list_id, name, lat, lng) SELECT DISTINCT id, 'Steak', 55.3530621, 10.3442499 FROM lists;
+INSERT INTO items (list_id, name, lat, lng) SELECT DISTINCT id, 'Chicken', 55.3530621, 10.3442499 FROM lists;
+INSERT INTO items (list_id, name, lat, lng) SELECT DISTINCT id, 'Pasta', 55.3530628, 10.3442416 FROM lists;
+INSERT INTO items (list_id, name, lat, lng) SELECT DISTINCT id, 'Rice', 55.3530628, 10.3442416 FROM lists;
+INSERT INTO items (list_id, name, lat, lng) SELECT DISTINCT id, 'Cola', 55.3531045, 10.3443968 FROM lists;

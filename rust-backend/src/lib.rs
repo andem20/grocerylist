@@ -1,10 +1,10 @@
 use std::{collections::HashMap, sync::RwLock};
 
-pub mod websockets;
-pub mod repository;
 pub mod config;
-pub mod routes;
 pub mod handlers;
+pub mod repository;
+pub mod routes;
+pub mod websockets;
 
 #[derive(Debug)]
 pub struct SessionStorage {

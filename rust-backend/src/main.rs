@@ -2,37 +2,26 @@ use std::sync::Arc;
 
 use actix::Actor;
 use actix_cors::Cors;
-use actix_web::{
-    middleware::Logger, web, App, HttpServer,
+use actix_web::{middleware::Logger, web, App, HttpServer};
+use backend::{
+    repository::{items_repository::Item, repository::Repository},
+    routes,
+    websockets::server::WsServer,
+    SessionStorage,
 };
-use backend::{repository::repository::Repository, routes, websockets::server::WsServer, SessionStorage};
 use config::Config;
 use deadpool_postgres::tokio_postgres::NoTls;
 use dotenvy::dotenv;
+use linfa::traits::Transformer;
+use linfa_clustering::Dbscan;
+
+use ndarray::Array2;
 use serde::Deserialize;
 
 #[derive(Debug, Default, Deserialize)]
 struct DbConfig {
     pub pg: deadpool_postgres::Config,
 }
-
-// #[get("/users")]
-// async fn get_users(
-//     repository: web::Data<Repository>,
-//     server_addr: web::Data<Addr<WsServer>>
-// ) -> Result<HttpResponse, Error> {
-//     let users = repository.users().find_all().await?;
-
-//     let response = messages::ClientMessage {
-//         action: messages::Action::READ,
-//         resource: messages::Resource::USER,
-//         content: users,
-//     };
-
-//     server_addr.do_send(response);
-
-//     Ok(HttpResponse::Ok().into())
-// }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -53,6 +42,15 @@ async fn main() -> std::io::Result<()> {
 
     println!("Server running on http://localhost:8080");
 
+    let items = repository.items().find_all().await.unwrap();
+
+    run_dbscan(items).into_iter().for_each(|item| {
+        let rep = repository.clone();
+        tokio::spawn(async move {
+            let _ = rep.items().update(item).await;
+        });
+    });
+
     HttpServer::new(move || {
         let cors = Cors::permissive();
 
@@ -68,4 +66,32 @@ async fn main() -> std::io::Result<()> {
     .bind(("192.168.123.31", 8080))?
     .run()
     .await
+}
+
+fn run_dbscan(mut items: Vec<Item>) -> Vec<Item> {
+    let items_array = items
+        .iter()
+        .map(|item| vec![item.lat.unwrap(), item.lng.unwrap()])
+        .flatten()
+        .collect::<Vec<f64>>();
+
+    let observations = Array2::from_shape_vec((items_array.len() / 2, 2), items_array).unwrap();
+
+    let min_points = 2;
+    let clusters = Dbscan::params(min_points)
+        .tolerance(1e-3 / 6371.0)
+        .transform(&observations)
+        .unwrap();
+
+    let categories = clusters
+        .to_vec()
+        .iter()
+        .map(|cat| cat.and_then(|x| Some(x as i16)))
+        .collect::<Vec<Option<i16>>>();
+
+    for (item, category) in items.iter_mut().zip(categories) {
+        item.category = category;
+    }
+
+    return items;
 }

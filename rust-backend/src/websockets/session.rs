@@ -120,20 +120,6 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsSession {
 
                 match msg.resource {
                     messages::Resource::ITEM => match msg.action {
-                        // messages::Action::READ => {
-                        //     let request: ItemsRequest = serde_json::from_str(&msg.content).unwrap();
-                        //     ctx.address().do_send(request);
-                        // }
-
-                        // messages::Action::CREATE => {
-                        //     let request: ItemSaveRequest = serde_json::from_str(&msg.content).unwrap();
-                        //     self.server_address.do_send(request);
-                        // }
-
-                        // messages::Action::UPDATE => {
-                        //     let request: ItemUpdateRequest = serde_json::from_str(&msg.content).unwrap();
-                        //     self.server_address.do_send(request);
-                        // }
                         _ => println!("Action {:?} not supported", msg.action),
                     },
                     _ => println!("Type {:?} not supported", msg.resource),

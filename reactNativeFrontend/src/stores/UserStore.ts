@@ -1,54 +1,73 @@
 import {createSlice, configureStore, PayloadAction} from '@reduxjs/toolkit';
+import {websocketMiddleware} from '../middleware/ws.middleware';
+
+export interface List {
+	id: string;
+	title: string;
+	user_id: string;
+	items: {
+		[key: string]: Item;
+	};
+}
+
+export interface Item {
+	id: string;
+	list_id: string;
+	name: string;
+	done: boolean;
+	lat: number | null;
+	lng: number | null;
+	category: number | null;
+}
 
 export interface UserStoreState {
-  backendUrl: string;
-  userToken: string | null;
-  websocket: WebSocket | null;
+	backendUrl: string;
+	userToken: string | null;
+	lists: {
+		[key: string]: List;
+	};
 }
 
 const userSlice = createSlice({
-  name: 'isLoggedIn',
-  initialState: {
-    backendUrl: '192.168.123.31:8080',
-    userToken: null,
-    websocket: null,
-  } as UserStoreState,
-  reducers: {
-    setUserToken: (state, action: PayloadAction<string | null>) => {
-      state.userToken = action.payload;
-    },
-    createWebsocketConnection: state => {
-      const ws = new WebSocket(
-        `ws://${state.backendUrl}/ws?token=${state.userToken}`,
-      );
-
-      state.websocket = ws;
-
-      ws.onopen = () => {
-        // connection opened
-        console.log('Connection opened');
-      };
-
-      ws.onmessage = e => {
-        // a message was received
-        console.log(e.data);
-      };
-
-      ws.onerror = e => {
-        // an error occurred
-        console.log(e.message);
-      };
-
-      ws.onclose = e => {
-        // connection closed
-        console.log(e.code, e.reason);
-      };
-    },
-  },
+	name: 'isLoggedIn',
+	initialState: {
+		backendUrl: '192.168.123.31:8080',
+		userToken: null,
+		lists: {},
+	} as UserStoreState,
+	reducers: {
+		setUserToken: (state, action: PayloadAction<string | null>) => {
+			state.userToken = action.payload;
+		},
+		setLists: (state, action: PayloadAction<List[]>) => {
+			action.payload.forEach(list => {
+				state.lists[list.id] = list;
+				state.lists[list.id].items = {};
+			});
+		},
+		updateListItem: (state, action: PayloadAction<Item>) => {
+			state.lists[action.payload.list_id].items[action.payload.id] =
+				action.payload;
+		},
+		deleteListItem: (state, action: PayloadAction<Item>) => {
+			delete state.lists[action.payload.list_id].items[action.payload.id];
+		},
+		clearLists: state => {
+			state.lists = {};
+		},
+	},
 });
 
-export const {setUserToken, createWebsocketConnection} = userSlice.actions;
+export const {
+	setUserToken,
+	setLists,
+	updateListItem,
+	deleteListItem,
+	clearLists,
+} = userSlice.actions;
 
 export const store = configureStore({
-  reducer: userSlice.reducer,
+	reducer: userSlice.reducer,
+	middleware: getDefaultMiddleware =>
+		getDefaultMiddleware().concat(websocketMiddleware),
 });

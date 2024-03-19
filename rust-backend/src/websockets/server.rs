@@ -11,7 +11,7 @@ use super::messages;
 
 pub struct WsServer {
     rooms: HashMap<uuid::Uuid, HashSet<uuid::Uuid>>,
-    sessions: HashMap<uuid::Uuid, Recipient<messages::WsMessage>>,
+    sessions: HashMap<uuid::Uuid, Vec<Recipient<messages::WsMessage>>>,
     repository: Arc<Repository>,
 }
 
@@ -28,7 +28,7 @@ impl WsServer {
         &self.rooms
     }
 
-    pub fn sessions(&self) -> &HashMap<uuid::Uuid, Recipient<messages::WsMessage>> {
+    pub fn sessions(&self) -> &HashMap<uuid::Uuid, Vec<Recipient<messages::WsMessage>>> {
         &self.sessions
     }
 
@@ -53,9 +53,12 @@ impl WsServer {
             self.sessions()
                 .get(user)
                 .unwrap()
-                .do_send(messages::WsMessage(
-                    serde_json::to_string(&response).unwrap(),
-                ));
+                .iter()
+                .for_each(|recipient| {
+                    recipient.do_send(messages::WsMessage(
+                        serde_json::to_string(&response).unwrap(),
+                    ))
+                });
         });
     }
 }
@@ -70,7 +73,10 @@ impl Handler<messages::Connect> for WsServer {
     fn handle(&mut self, msg: messages::Connect, _ctx: &mut Self::Context) -> Self::Result {
         let session_id = msg.id;
 
-        self.sessions.insert(session_id.clone(), msg.address);
+        self.sessions
+            .entry(session_id)
+            .or_insert(vec![])
+            .push(msg.address);
 
         for room in &msg.rooms {
             self.rooms
@@ -106,7 +112,9 @@ impl Handler<messages::ClientMessage<Vec<User>>> for WsServer {
         _ctx: &mut Self::Context,
     ) -> Self::Result {
         self.sessions().values().into_iter().for_each(|session| {
-            session.do_send(messages::WsMessage(serde_json::to_string(&msg).unwrap()));
+            session.iter().for_each(|recipient| {
+                recipient.do_send(messages::WsMessage(serde_json::to_string(&msg).unwrap()))
+            });
         });
     }
 }

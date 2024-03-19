@@ -25,6 +25,12 @@ pub struct ItemUpdateRequest {
     pub id: uuid::Uuid,
     pub name: String,
     pub done: bool,
+    #[serde(default)]
+    pub lat: Option<f64>,
+    #[serde(default)]
+    pub lng: Option<f64>,
+    #[serde(default)]
+    pub category: Option<i16>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -66,12 +72,7 @@ pub async fn save_list_item(
 
     if let Some(token) = request.headers().get(AUTHORIZATION) {
         if let Some(_user_id) = session.store.read().unwrap().get(token.to_str().unwrap()) {
-            let item = Item {
-                id: uuid::Uuid::new_v4(),
-                list_id,
-                name: body.name.clone(),
-                done: false,
-            };
+            let item = Item::new(uuid::Uuid::new_v4(), list_id, body.name.clone(), false);
 
             let item = repository.items().save(item).await.unwrap();
 
@@ -100,13 +101,9 @@ pub async fn update_list_item(
 
     if let Some(token) = request.headers().get(AUTHORIZATION) {
         if let Some(_user_id) = session.store.read().unwrap().get(token.to_str().unwrap()) {
-            let item = Item {
-                id: body.id,
-                list_id,
-                name: body.name.clone(),
-                done: body.done,
-            };
-
+            let mut item = Item::new(body.id, list_id, body.name.clone(), body.done);
+            item.category = body.category;
+            item.set_location(body.lat, body.lng);
             let item = repository.items().update(item).await.unwrap();
 
             server.do_send(UpdateItem {
@@ -134,12 +131,7 @@ pub async fn delete_list_item(
 
     if let Some(token) = request.headers().get(AUTHORIZATION) {
         if let Some(_user_id) = session.store.read().unwrap().get(token.to_str().unwrap()) {
-            let item = Item {
-                id: body.id,
-                list_id,
-                name: "".to_owned(),
-                done: true,
-            };
+            let item = Item::new(body.id, list_id, "".to_owned(), true);
 
             let _ = repository.items().delete(body.id).await.unwrap();
 
