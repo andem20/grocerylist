@@ -1,18 +1,17 @@
-import {
-	View,
-	StyleSheet,
-	Pressable,
-	ScrollView,
-	PermissionsAndroid,
-} from 'react-native';
+import {View, StyleSheet, ScrollView} from 'react-native';
 import React, {useEffect, useState} from 'react';
 import {Item, UserStoreState, store, updateListItem} from '../stores/UserStore';
 import {useSelector} from 'react-redux';
 import {RootStackParamList} from '../App';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {Button, Icon, Input, ListItem, ScreenWidth, Text} from '@rneui/base';
-import {COLORS} from '../constants/colors.constants';
-import Geolocation from 'react-native-geolocation-service';
+import {Input, Text} from '@rneui/base';
+import {
+	clearWatch,
+	getDistanceFromLatLon,
+	watchPosition,
+} from '../services/LocationService';
+import {GeoCoordinates} from 'react-native-geolocation-service';
+import {RenderItem} from '../components/items/RenderItem';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Items'>;
 
@@ -20,7 +19,7 @@ export function ItemsScreen({route}: Props) {
 	const list = route.params.list;
 
 	const [itemInput, setItemInput] = useState('');
-	const [location, setLocation] = useState<Geolocation.GeoCoordinates>();
+	const [location, setLocation] = useState<GeoCoordinates>();
 	const [itemList, setItemList] = useState<Item[]>([]);
 
 	let numCategories: {
@@ -62,63 +61,17 @@ export function ItemsScreen({route}: Props) {
 				return distA - distB;
 			}),
 		);
-	}, [location, items]);
+	}, [items, location]);
 
 	useEffect(() => {
-		let watch: number;
-		requestLocationPermission().then(res => {
-			if (res) {
-				watch = Geolocation.watchPosition(
-					position => {
-						setLocation(position.coords);
-					},
-					error => {
-						// See error code charts below.
-						console.log(error.code, error.message);
-					},
-					{
-						enableHighAccuracy: true,
-						distanceFilter: 1,
-						interval: 1000,
-						forceRequestLocation: true,
-						forceLocationManager: false,
-						showLocationDialog: true,
-						useSignificantChanges: false,
-					},
-				);
-			}
-		});
+		let watchId: number;
 
-		return () => Geolocation.clearWatch(watch);
+		watchPosition(position => {
+			setLocation(position);
+		}).then(id => (watchId = id!));
+
+		return () => clearWatch(watchId);
 	}, []);
-
-	function deg2rad(deg: number) {
-		return deg * (Math.PI / 180);
-	}
-
-	function getDistanceFromLatLon(
-		lat1: number,
-		lon1: number,
-		lat2: number,
-		lon2: number,
-	) {
-		const earthRadiusMeters = 6371_000;
-
-		const dLat = deg2rad(lat2 - lat1);
-		const dLon = deg2rad(lon2 - lon1);
-
-		const a =
-			Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-			Math.cos(deg2rad(lat1)) *
-				Math.cos(deg2rad(lat2)) *
-				Math.sin(dLon / 2) *
-				Math.sin(dLon / 2);
-
-		const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-		const distance = earthRadiusMeters * c;
-
-		return distance;
-	}
 
 	useEffect(() => {
 		fetch(`http://${store.getState().backendUrl}/list/${list.id}/items`, {
@@ -133,150 +86,6 @@ export function ItemsScreen({route}: Props) {
 			.catch(error => console.error(error));
 	}, []);
 
-	const RenderItem = (item: Item, numCategories: any) => {
-		const margin = 3;
-
-		return (
-			<View
-				style={[
-					styles.listRow,
-					{
-						width:
-							ScreenWidth /
-								(numCategories[item.category ?? 0] > 1
-									? 2
-									: 1) -
-							margin * 2,
-						margin,
-						overflow: 'hidden',
-					},
-				]}
-				key={item.id}>
-				<ListItem.Swipeable
-					containerStyle={{
-						backgroundColor: '#ffffff',
-						padding: 0,
-					}}
-					leftContent={reset => (
-						<Button
-							title="Edit"
-							onPress={() => {
-								reset();
-							}}
-							icon={{name: 'edit', color: 'white'}}
-							buttonStyle={{height: '100%', width: '100%'}}
-						/>
-					)}
-					rightContent={reset => (
-						<Button
-							title="Delete"
-							onPress={() => {
-								reset();
-								fetch(
-									`http://${
-										store.getState().backendUrl
-									}/list/${item.list_id}/items`,
-									{
-										headers: {
-											Authorization:
-												store.getState().userToken ??
-												'',
-											'Content-Type': 'application/json',
-										},
-										method: 'DELETE',
-										body: JSON.stringify({
-											id: item.id,
-										}),
-									},
-								);
-							}}
-							icon={{name: 'delete', color: 'white'}}
-							buttonStyle={{
-								height: '100%',
-								backgroundColor: 'red',
-								width: '100%',
-							}}
-						/>
-					)}
-					rightWidth={ScreenWidth / 4 + margin}
-					leftWidth={ScreenWidth / 4 - margin * 4}>
-					<Pressable
-						onPress={async () => {
-							fetch(
-								`http://${store.getState().backendUrl}/list/${
-									item.list_id
-								}/items`,
-								{
-									headers: {
-										Authorization:
-											store.getState().userToken ?? '',
-										'Content-Type': 'application/json',
-									},
-									method: 'PUT',
-									body: JSON.stringify({
-										id: item.id,
-										name: item.name,
-										done: !item.done,
-										lat: item.lat,
-										lng: item.lng,
-										category: item.category,
-									}),
-								},
-							);
-						}}
-						style={{
-							flexDirection: 'row',
-							borderWidth: 1,
-							borderRadius: 5,
-							opacity: item.done ? 0.6 : 1.0,
-							backgroundColor: item.done
-								? '#bbbbbb'
-								: COLORS[item.category ?? 0] + '00',
-							borderColor: COLORS[item.category ?? 0],
-						}}>
-						<ListItem.Content
-							style={{
-								padding: 10,
-								margin: 10,
-							}}>
-							<ListItem.Title
-								style={{
-									fontSize: 18,
-									fontWeight: 'bold',
-									color: '#000000',
-									textDecorationLine: item.done
-										? 'line-through'
-										: 'none',
-								}}>
-								{item.name}
-							</ListItem.Title>
-							<ListItem.Subtitle style={{color: '#000000'}}>
-								{item.category} |
-								{getDistanceFromLatLon(
-									location?.latitude ?? 0,
-									location?.longitude ?? 0,
-									item.lat ?? 0,
-									item.lng ?? 0,
-								).toFixed(3)}
-							</ListItem.Subtitle>
-						</ListItem.Content>
-						<Icon
-							name="cart"
-							type="material-community"
-							color={COLORS[item.category ?? 0]}
-							size={35}
-							style={{
-								flex: 1,
-								padding: 5,
-								justifyContent: 'center',
-							}}
-						/>
-					</Pressable>
-				</ListItem.Swipeable>
-			</View>
-		);
-	};
-
 	return (
 		<ScrollView style={{backgroundColor: '#ffffff'}}>
 			<View
@@ -286,7 +95,14 @@ export function ItemsScreen({route}: Props) {
 				}}>
 				{itemList
 					.sort((a, b) => (a.done === b.done ? 0 : a.done ? 1 : -1))
-					.map(item => RenderItem(item, numCategories))}
+					.map(item => (
+						<RenderItem
+							item={item}
+							numCategories={numCategories}
+							location={location}
+							key={item.id}
+						/>
+					))}
 				<View style={[styles.itemInputContainer]}>
 					{/* <Input
 						placeholder="Enter item"
@@ -344,25 +160,3 @@ const styles = StyleSheet.create({
 		marginBottom: 20,
 	},
 });
-
-const requestLocationPermission = async () => {
-	try {
-		const granted = await PermissionsAndroid.request(
-			PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-			{
-				title: 'Geolocation Permission',
-				message: 'Can we access your location?',
-				buttonNeutral: 'Ask Me Later',
-				buttonNegative: 'Cancel',
-				buttonPositive: 'OK',
-			},
-		);
-		if (granted === 'granted') {
-			return true;
-		} else {
-			return false;
-		}
-	} catch (err) {
-		return false;
-	}
-};
