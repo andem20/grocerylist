@@ -1,4 +1,12 @@
-import {View, StyleSheet, ScrollView} from 'react-native';
+import {
+	View,
+	StyleSheet,
+	ScrollView,
+	Platform,
+	UIManager,
+	LayoutAnimation,
+	Animated,
+} from 'react-native';
 import React, {useEffect, useState} from 'react';
 import {Item, UserStoreState, store, updateListItem} from '../stores/UserStore';
 import {useSelector} from 'react-redux';
@@ -14,6 +22,13 @@ import {GeoCoordinates} from 'react-native-geolocation-service';
 import {RenderItem} from '../components/items/RenderItem';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Items'>;
+
+if (
+	Platform.OS === 'android' &&
+	UIManager.setLayoutAnimationEnabledExperimental
+) {
+	UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export function ItemsScreen({route}: Props) {
 	const list = route.params.list;
@@ -41,25 +56,34 @@ export function ItemsScreen({route}: Props) {
 		return items;
 	});
 
+	LayoutAnimation.configureNext({
+		duration: 400,
+		update: {
+			type: 'spring',
+			springDamping: 1.0,
+		},
+	});
 	useEffect(() => {
 		setItemList(
-			Object.values(items).sort((a, b) => {
-				const distA = getDistanceFromLatLon(
-					location?.latitude ?? 0,
-					location?.longitude ?? 0,
-					a.lat ?? 0,
-					a.lng ?? 0,
-				);
+			Object.values(items)
+				.sort((a, b) => {
+					const distA = getDistanceFromLatLon(
+						location?.latitude ?? 0,
+						location?.longitude ?? 0,
+						a.lat ?? 0,
+						a.lng ?? 0,
+					);
 
-				const distB = getDistanceFromLatLon(
-					location?.latitude ?? 0,
-					location?.longitude ?? 0,
-					b.lat ?? 0,
-					b.lng ?? 0,
-				);
+					const distB = getDistanceFromLatLon(
+						location?.latitude ?? 0,
+						location?.longitude ?? 0,
+						b.lat ?? 0,
+						b.lng ?? 0,
+					);
 
-				return distA - distB;
-			}),
+					return distA - distB;
+				})
+				.sort((a, b) => (a.done === b.done ? 0 : a.done ? 1 : -1)),
 		);
 	}, [items, location]);
 
@@ -87,22 +111,20 @@ export function ItemsScreen({route}: Props) {
 	}, []);
 
 	return (
-		<ScrollView style={{backgroundColor: '#ffffff'}}>
-			<View
+		<ScrollView>
+			<Animated.View
 				style={{
 					flexDirection: 'row',
 					flexWrap: 'wrap',
 				}}>
-				{itemList
-					.sort((a, b) => (a.done === b.done ? 0 : a.done ? 1 : -1))
-					.map(item => (
-						<RenderItem
-							item={item}
-							numCategories={numCategories}
-							location={location}
-							key={item.id}
-						/>
-					))}
+				{itemList.map(item => (
+					<RenderItem
+						item={item}
+						numCategories={numCategories[item.category ?? 0]}
+						location={location}
+						key={item.id}
+					/>
+				))}
 				<View style={[styles.itemInputContainer]}>
 					{/* <Input
 						placeholder="Enter item"
@@ -136,7 +158,7 @@ export function ItemsScreen({route}: Props) {
 						{location?.latitude}, {location?.longitude}
 					</Text>
 				</View>
-			</View>
+			</Animated.View>
 		</ScrollView>
 	);
 }
