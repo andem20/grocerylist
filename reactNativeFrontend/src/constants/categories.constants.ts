@@ -1,7 +1,11 @@
 export const CATEGORY_ICONS = {
-	'rice,pasta': 'bowl-mix',
-	'steak,chicken': 'food-steak',
-	bread: 'baguette',
-	'milk,cheese': 'cheese',
-	'cola,wine': 'bottle-wine',
+	dairy: 'cheese',
+	meat: 'food-steak',
+	bakery: 'baguette',
+	canned: 'food-takeout-box',
+	clothe: 'tshirt-crew',
+	snack: 'french-fries',
+	vegetable: 'carrot',
+	fruit: 'food-apple',
+	beverage: 'bottle-wine',
 };

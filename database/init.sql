@@ -29,6 +29,13 @@ INSERT INTO lists (id, title, user_id) SELECT (SELECT * FROM list_id), 'Shopping
 
 INSERT INTO lists (id, title, user_id) VALUES (gen_random_uuid(), 'Personal', (SELECT id FROM users WHERE username = 'anderslm@hotmail.com'));
 
+CREATE TABLE categories (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    name VARCHAR(255) NOT NULL
+);
+
+INSERT INTO categories (name) VALUES ('dairy'), ('meat'), ('bakery'), ('canned'), ('clothe'), ('snack'), ('vegetable'), ('fruit'), ('beverage');
+
 CREATE TABLE items (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     list_id uuid,
@@ -37,7 +44,8 @@ CREATE TABLE items (
     deleted BOOLEAN DEFAULT FALSE NOT NULL,
     lat FLOAT,
     lng FLOAT,
-    category SMALLINT
+    cluster SMALLINT,
+    category VARCHAR(255)
 );
 
 INSERT INTO items (list_id, name, lat, lng) SELECT DISTINCT id, 'Milk', 55.3530717, 10.3442589 FROM lists;

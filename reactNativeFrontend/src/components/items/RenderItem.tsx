@@ -114,7 +114,7 @@ export function RenderItem({item, numCategories, location}: Props) {
 									done: !item.done,
 									lat: item.lat,
 									lng: item.lng,
-									category: item.category,
+									category: item.cluster,
 								}),
 							},
 						);
@@ -126,8 +126,8 @@ export function RenderItem({item, numCategories, location}: Props) {
 						opacity: item.done ? 0.6 : 1.0,
 						backgroundColor: item.done
 							? '#bbbbbb'
-							: COLORS[item.category ?? 0] + '00',
-						borderColor: COLORS[item.category ?? 0],
+							: COLORS[item.cluster ?? 0] + '00',
+						borderColor: COLORS[item.cluster ?? 0],
 						justifyContent: 'center',
 						alignItems: 'center',
 					}}>
@@ -154,18 +154,11 @@ export function RenderItem({item, numCategories, location}: Props) {
 								item.lat ?? 0,
 								item.lng ?? 0,
 							).toFixed(1)}
-							m
+							m{item.category}
 						</ListItem.Subtitle>
 					</ListItem.Content>
 					<Icon
-						name={(() =>
-							Object.keys(CATEGORY_ICONS)
-								.filter(k =>
-									k.includes(item.name.toLowerCase()),
-								)
-								.map(k => {
-									return CATEGORY_ICONS[k];
-								})[0])()}
+						name={CATEGORY_ICONS[item.category ?? '']}
 						type="material-community"
 						color="#ffffff"
 						size={22}
@@ -174,7 +167,7 @@ export function RenderItem({item, numCategories, location}: Props) {
 							margin: 5,
 							justifyContent: 'center',
 							borderRadius: 100,
-							backgroundColor: COLORS[item.category ?? 0],
+							backgroundColor: COLORS[item.cluster ?? 0],
 						}}
 					/>
 				</Pressable>

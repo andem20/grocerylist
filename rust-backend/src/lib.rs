@@ -4,6 +4,7 @@ pub mod config;
 pub mod handlers;
 pub mod repository;
 pub mod routes;
+pub mod services;
 pub mod websockets;
 
 #[derive(Debug)]

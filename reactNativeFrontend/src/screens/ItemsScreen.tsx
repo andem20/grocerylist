@@ -48,8 +48,8 @@ export function ItemsScreen({route}: Props) {
 		Object.values(items)
 			.filter(item => !item.done)
 			.forEach(item => {
-				const category = numCategories[item.category ?? 0];
-				numCategories[item.category ?? 0] =
+				const category = numCategories[item.cluster ?? 0];
+				numCategories[item.cluster ?? 0] =
 					category == undefined || null ? 1 : category + 1;
 			});
 
@@ -120,7 +120,7 @@ export function ItemsScreen({route}: Props) {
 				{itemList.map(item => (
 					<RenderItem
 						item={item}
-						numCategories={numCategories[item.category ?? 0]}
+						numCategories={numCategories[item.cluster ?? 0]}
 						location={location}
 						key={item.id}
 					/>

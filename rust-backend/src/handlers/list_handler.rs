@@ -102,7 +102,7 @@ pub async fn update_list_item(
     if let Some(token) = request.headers().get(AUTHORIZATION) {
         if let Some(_user_id) = session.store.read().unwrap().get(token.to_str().unwrap()) {
             let mut item = Item::new(body.id, list_id, body.name.clone(), body.done);
-            item.category = body.category;
+            item.cluster = body.category;
             item.set_location(body.lat, body.lng);
             let item = repository.items().update(item).await.unwrap();
 

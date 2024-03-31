@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
     io::{Read, Write},
-    time::Instant,
     vec,
 };
 
@@ -19,8 +18,14 @@ impl Word2Vec {
     }
 
     pub fn distance(&self, a: &str, b: &str) -> f32 {
-        let dist_a = self.embeddings.get(a).unwrap();
-        let dist_b = self.embeddings.get(b).unwrap();
+        let dist_a = self
+            .embeddings
+            .get(a)
+            .expect(format!("Could not find word: {}", a).as_str());
+        let dist_b = self
+            .embeddings
+            .get(b)
+            .expect(format!("Could not find word: {}", a).as_str());
 
         return distance(dist_a, dist_b);
     }
@@ -36,19 +41,6 @@ fn distance(vec_a: &Vec<f32>, vec_b: &Vec<f32>) -> f32 {
         .zip(vec_b.iter())
         .map(|(&a_val, &b_val)| (a_val - b_val) * (a_val - b_val))
         .fold(0.0, std::ops::Add::add);
-}
-
-fn main() {
-    let start = Instant::now();
-    let w2v = Word2Vec::new("./resources/glove-wiki-gigaword-300.w2v");
-
-    println!(
-        "Loaded {} words in {:.3}s",
-        w2v.size(),
-        start.elapsed().as_secs_f32()
-    );
-
-    println!("Dist: {}", w2v.distance("cheese", "dairy"));
 }
 
 fn load_w2v(file_name: &str) -> HashMap<String, Vec<f32>> {

@@ -16,7 +16,8 @@ pub struct Item {
     pub done: bool,
     pub lat: Option<f64>,
     pub lng: Option<f64>,
-    pub category: Option<i16>,
+    pub cluster: Option<i16>,
+    pub category: Option<String>,
 }
 
 impl Item {
@@ -28,6 +29,7 @@ impl Item {
             done,
             lat: None,
             lng: None,
+            cluster: None,
             category: None,
         }
     }
@@ -35,6 +37,10 @@ impl Item {
     pub fn set_location(&mut self, lat: Option<f64>, lng: Option<f64>) {
         self.lat = lat;
         self.lng = lng;
+    }
+
+    pub fn set_category(&mut self, category: Option<String>) {
+        self.category = category;
     }
 }
 
@@ -105,7 +111,7 @@ impl ItemRepository {
     pub async fn update(&self, item: Item) -> Result<Item, DbError> {
         let client = self.client().await;
         let stmt = client
-            .prepare("UPDATE items SET name = $1, done = $2, lat = $3, lng = $4, category = $5 WHERE id = $6")
+            .prepare("UPDATE items SET name = $1, done = $2, lat = $3, lng = $4, cluster = $5, category = $6 WHERE id = $7")
             .await?;
         client
             .query(
@@ -115,6 +121,7 @@ impl ItemRepository {
                     &item.done,
                     &item.lat,
                     &item.lng,
+                    &item.cluster,
                     &item.category,
                     &item.id,
                 ],

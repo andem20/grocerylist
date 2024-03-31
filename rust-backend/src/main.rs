@@ -4,8 +4,9 @@ use actix::Actor;
 use actix_cors::Cors;
 use actix_web::{middleware::Logger, web, App, HttpServer};
 use backend::{
-    repository::{items_repository::Item, repository::Repository},
+    repository::{categories_repository::Category, items_repository::Item, repository::Repository},
     routes,
+    services::word2vec,
     websockets::server::WsServer,
     SessionStorage,
 };
@@ -42,7 +43,10 @@ async fn main() -> std::io::Result<()> {
 
     println!("Server running on http://localhost:8080");
 
-    let items = repository.items().find_all().await.unwrap();
+    let mut items = repository.items().find_all().await.unwrap();
+    let categories = repository.categories().find_all().await.unwrap();
+
+    categorize_items(&mut items, categories);
 
     run_dbscan(items).into_iter().for_each(|item| {
         let rep = repository.clone();
@@ -68,6 +72,25 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 
+fn categorize_items(items: &mut Vec<Item>, categories: Vec<Category>) {
+    let w2v = word2vec::Word2Vec::new("/home/anders/Documents/projects/rust/grocery-list/rust-backend/word2vec/resources/glove-wiki-gigaword-300.w2v");
+
+    for item in items.iter_mut() {
+        let category = categories
+            .iter()
+            .map(|category| {
+                (
+                    w2v.distance(&item.name.to_lowercase(), &category.name.to_lowercase()),
+                    category,
+                )
+            })
+            .min_by(|a, b| a.0.total_cmp(&b.0))
+            .map(|cat| cat.1.name.clone());
+
+        item.set_category(category);
+    }
+}
+
 fn run_dbscan(mut items: Vec<Item>) -> Vec<Item> {
     let items_array = items
         .iter()
@@ -90,7 +113,7 @@ fn run_dbscan(mut items: Vec<Item>) -> Vec<Item> {
         .collect::<Vec<Option<i16>>>();
 
     for (item, category) in items.iter_mut().zip(categories) {
-        item.category = category;
+        item.cluster = category;
     }
 
     return items;

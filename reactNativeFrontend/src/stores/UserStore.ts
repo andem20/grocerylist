@@ -17,7 +17,13 @@ export interface Item {
 	done: boolean;
 	lat: number | null;
 	lng: number | null;
-	category: number | null;
+	cluster: number | null;
+	category: string | null;
+}
+
+export interface Category {
+	id: string;
+	name: string;
 }
 
 export interface UserStoreState {
@@ -26,6 +32,7 @@ export interface UserStoreState {
 	lists: {
 		[key: string]: List;
 	};
+	categories: Category[];
 }
 
 const userSlice = createSlice({
